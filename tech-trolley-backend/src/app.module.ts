@@ -26,18 +26,30 @@ import { ReportsModule } from './reports/reports.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DATABASE_HOST'),
-        port: configService.get<number>('DATABASE_PORT'),
-        username: configService.get<string>('DATABASE_USER'),
-        password: configService.get<string>('DATABASE_PASSWORD'),
-        database: configService.get<string>('DATABASE_NAME'),
-        autoLoadEntities: true,
-        // Schema changes are applied through reviewed migrations so existing
-        // transaction and inventory data is never rewritten implicitly.
-        synchronize: true,
-      }),
+      useFactory: (configService: ConfigService) => {
+        const databaseSsl =
+          configService
+            .get<string>('DATABASE_SSL', 'false')
+            .toLowerCase() === 'true';
+        const synchronize =
+          configService
+            .get<string>('DATABASE_SYNCHRONIZE', 'true')
+            .toLowerCase() === 'true';
+
+        return {
+          type: 'postgres',
+          host: configService.get<string>('DATABASE_HOST'),
+          port: configService.get<number>('DATABASE_PORT'),
+          username: configService.get<string>('DATABASE_USER'),
+          password: configService.get<string>('DATABASE_PASSWORD'),
+          database: configService.get<string>('DATABASE_NAME'),
+          autoLoadEntities: true,
+          ssl: databaseSsl ? { rejectUnauthorized: false } : false,
+          // The default preserves the existing local behavior. Set this to
+          // false after the initial production schema has been created.
+          synchronize,
+        };
+      },
     }),
     AuthModule,
     UsersModule,
